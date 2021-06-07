@@ -7,7 +7,7 @@ I wanted to share the code here, since I believe that more people may be sufferi
 
 To use, just run the script in the command line, using "python gnucash_pdb_update.py <your_file.gnucash>"
 
-The script goes through the commodities that are recorded in the book's price database, excluding the "template" and "CURRENCY" namespaces. It queries Yahoo Finance for the last close price of the different commodities and updates the database if the last value is not up-to-date.
+The script goes through the commodities that are recorded in the book's price database, excluding the "template" namespace. It queries Yahoo Finance for the last close price of the different commodities and updates the database if the last value is not up-to-date.
 
 It was writen assuming the book's default currency is EUR. If your book has a different default currency, it will be necessary to do some tweaks. I haven't had time to figure out a way to make the script more generic in this way. However, if you need to change it to your needs and if you need help with that, let me know.
 
