@@ -16,7 +16,7 @@ import sys
 if len(sys.argv) < 2:
     sys.exit("ERROR: You need to define the gnucash file to use \n(\"python gnucash_pdb_update.py <your_file.gnucash>)\"")
 
-file = "gnucash_fmpedro_teste.gnucash"
+file = sys.argv[1]
 book_curr = 'EUR' #change this if your book is in another currency (don't know way to get it from the book)
 
 
