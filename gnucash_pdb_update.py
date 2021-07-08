@@ -49,7 +49,10 @@ for namespace in comm_table.get_namespaces():
                 ticker = yf.Ticker(mnemonic) #query yfinance for commodity
                 ticker_price = ticker.history(period='1d').Close[-1] #get commodity's last close price
                 ticker_price_date = ticker.history(period='1d').index[-1] #get commodity's last close price
-                ticker_curr = ticker.info['currency'] #get commodity's currency
+                try:
+                	ticker_curr = ticker.info['currency'] #get commodity's currency
+                except: # if no data regarding currency is acquired, assume currency is EUR
+                	ticker_curr = 'EUR'
                 comm_curr = comm_table.lookup("CURRENCY", ticker_curr) #find commodity's currency on
                                                                        #commodities table for new price entry
                 price_list=pdb.get_prices(comm,comm_curr) #get commodity's price list from database
