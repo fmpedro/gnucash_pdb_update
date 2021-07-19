@@ -73,8 +73,10 @@ for namespace in comm_table.get_namespaces():
                     new_price.set_typestr('last')
                     pdb.add_price(new_price)
                     print(mnemonic, '(', fullname, ')', 'price:', ticker_price, ticker_curr, 'updated!')
-            except:
-                print(mnemonic, ': ',traceback.format_exc())
+            except IndexError:
+            	continue
+            except Exception as error:
+                print(mnemonic,': ',traceback.format_exc())
                 continue
 
 
