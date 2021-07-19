@@ -1,6 +1,6 @@
 '''
 Python script to automatically update Price Database of a Gnucash book,
-using python bindings and yfinance library
+using python bindings and yfinance library and web scrapping from morningstar
 
 Developed by Filipe Pedro. Published on GitHub (https://github.com/fmpedro/gnucash_pdb_update)
 '''
@@ -11,6 +11,7 @@ import gnucash
 from fractions import Fraction
 import datetime
 import sys
+import traceback
 
 # Check if gnucash file was defined on script call:
 if len(sys.argv) < 2:
@@ -73,6 +74,7 @@ for namespace in comm_table.get_namespaces():
                     pdb.add_price(new_price)
                     print(mnemonic, '(', fullname, ')', 'price:', ticker_price, ticker_curr, 'updated!')
             except:
+                print(mnemonic, ': ',traceback.format_exc())
                 continue
 
 
