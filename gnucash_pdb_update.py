@@ -1,6 +1,6 @@
 '''
 Python script to automatically update Price Database of a Gnucash book,
-using python bindings and yfinance library and web scrapping from morningstar
+using python bindings and yfinance library, coincodex API and web scrapping from morningstar
 
 Developed by Filipe Pedro. Published on GitHub (https://github.com/fmpedro/gnucash_pdb_update)
 '''
@@ -9,9 +9,19 @@ import yfinance as yf
 from gnucash import Session
 import gnucash
 from fractions import Fraction
-import datetime
+from datetime import datetime
 import sys
 import traceback
+import pandas as pd
+import requests, json
+
+
+# gets convertion rate of 'ticker' to usd
+def get_rate2usd (ticker):
+    url = requests.get('https://coincodex.com/api/coincodex/get_coin/' + ticker)
+    data = json.loads(url.text)
+    return data['last_price_usd']
+
 
 # Check if gnucash file was defined on script call:
 if len(sys.argv) < 2:
@@ -46,16 +56,28 @@ for namespace in comm_table.get_namespaces():
                         continue #it it's the book's currency don't do anything
                     else:
                         mnemonic = book_curr + '=X' #changes currency mnemonic to format that yfinance understands
+
             try:
-                ticker = yf.Ticker(mnemonic) #query yfinance for commodity
-                ticker_price = ticker.history(period='1d').Close[-1] #get commodity's last close price
-                ticker_price_date = ticker.history(period='1d').index[-1] #get commodity's last close price
-                try:
-                	ticker_curr = ticker.info['currency'] #get commodity's currency
-                except: # if no data regarding currency is acquired, assume currency is EUR
-                	ticker_curr = 'EUR'
-                comm_curr = comm_table.lookup("CURRENCY", ticker_curr) #find commodity's currency on
-                                                                       #commodities table for new price entry
+                if mnemonic in ['BTC','ETH','AXS','SLP','SOL']: # get prices of cryptocurrencies
+                    mnemonic2usd = get_rate2usd(mnemonic)
+                    if book_curr == 'USD':
+                        book_curr2usd = 1
+                    else:
+                        book_curr2usd = get_rate2usd(book_curr)
+                    ticker_price = mnemonic2usd / book_curr2usd
+                    ticker_price_date = pd.Timestamp(datetime.now())
+                    ticker_curr = book_curr
+
+                else: # get prices of assests in yfinance 
+                    ticker = yf.Ticker(mnemonic) #query yfinance for commodity
+                    ticker_price = ticker.history(period='1d').Close[-1] #get commodity's last close price
+                    ticker_price_date = ticker.history(period='1d').index[-1] #get commodity's last close price date
+                    try:
+                    	ticker_curr = ticker.info['currency'] #get commodity's currency
+                    except: # if no data regarding currency is acquired, assume currency is EUR
+                    	ticker_curr = 'EUR'
+                
+                comm_curr = comm_table.lookup("CURRENCY", ticker_curr) #find commodity's currency on commodities table for new price entry
                 price_list=pdb.get_prices(comm,comm_curr) #get commodity's price list from database
                 if price_list[0].get_time64() >= ticker_price_date: #only add new price if last one is outdated
                     print(mnemonic, '(', fullname, ')', 'is already updated...')
@@ -78,7 +100,6 @@ for namespace in comm_table.get_namespaces():
             except Exception as error:
                 print(mnemonic,': ',traceback.format_exc())
                 continue
-
 
 # end session
 session.save()
