@@ -1,6 +1,6 @@
 # gnucash_pdb_update.py script
 
-A simple Python script to automatically update Price Database of a Gnucash book, using gnucash's python bindings, yfinance, coincodex API and morningstar libraries.
+A simple Python script to automatically update Price Database of a Gnucash book, using gnucash's python bindings, yfinance, coincodex API and webscraping.
 
 I developed this script for a personal need, since I was having trouble getting Gnucash's quotes download function to work and I got tired of adding new prices manualy each time I wanted to update the database.
 I wanted to share the code here, since I believe that more people may be suffering from the same problem and may find this script usefull.
