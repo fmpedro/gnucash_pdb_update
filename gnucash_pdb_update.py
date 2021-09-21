@@ -14,6 +14,7 @@ import sys
 import traceback
 import pandas as pd
 import requests, json
+from bs4 import BeautifulSoup as bs
 
 
 # gets convertion rate of 'ticker' to usd
@@ -47,6 +48,7 @@ for namespace in comm_table.get_namespaces():
         for comm in comm_table.get_commodities(namespace):
             mnemonic = comm.get_mnemonic() #symbol used to query yfinance
             fullname = comm.get_fullname() #full name defined in the price database
+            cusip = comm.get_cusip() #ISIN/CUSIP defined in the price database
             
             if namespace == 'CURRENCY':
                 if not comm.get_quote_flag():
@@ -58,7 +60,7 @@ for namespace in comm_table.get_namespaces():
                         mnemonic = book_curr + '=X' #changes currency mnemonic to format that yfinance understands
 
             try:
-                if mnemonic in ['BTC','ETH','AXS','SLP','SOL']: # get prices of cryptocurrencies
+                if namespace == 'CRYPTO': # get prices of cryptocurrencies
                     mnemonic2usd = get_rate2usd(mnemonic)
                     if book_curr == 'USD':
                         book_curr2usd = 1
@@ -67,6 +69,16 @@ for namespace in comm_table.get_namespaces():
                     ticker_price = mnemonic2usd / book_curr2usd
                     ticker_price_date = pd.Timestamp(datetime.now())
                     ticker_curr = book_curr
+
+                elif namespace == 'BANCOINVEST': # get prices from BancoInvest website
+                    url = "https://www.bancoinvest.pt/poupanca-e-investimento/investimento/fundos-de-investimento/detalhe-fundo-de-investimento?isin=" + cusip
+                    response = requests.get(url)
+                    soup = bs(response.content, 'lxml')
+                    ticker_price = soup.find(id="ContentCenter_C004_ucUCFundosDetalhe_ucUCFundosDetalheGeral_lblUltUP").text[:-4]
+                    ticker_price = float(ticker_price.replace(',','.'))
+                    ticker_price_date = soup.find(id="ContentCenter_C004_ucUCFundosDetalhe_ucUCFundosDetalheGeral_lblUltUpData").text
+                    ticker_price_date = pd.Timestamp(datetime.strptime(ticker_price_date, "%d-%m-%Y"))
+
 
                 else: # get prices of assests in yfinance 
                     ticker = yf.Ticker(mnemonic) #query yfinance for commodity
