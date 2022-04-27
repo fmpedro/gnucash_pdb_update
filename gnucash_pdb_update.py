@@ -19,8 +19,8 @@ from bs4 import BeautifulSoup as bs
 
 # gets convertion rate of 'ticker' to usd
 def get_rate2usd (ticker):
-    url = requests.get('https://coincodex.com/api/coincodex/get_coin/' + ticker)
-    data = json.loads(url.text)
+    response = requests.get('https://coincodex.com/api/coincodex/get_coin/' + ticker)
+    data = json.loads(response.text)
     return data['last_price_usd']
 
 
@@ -61,11 +61,18 @@ for namespace in comm_table.get_namespaces():
 
             try:
                 if namespace == 'CRYPTO': # get prices of cryptocurrencies
-                    mnemonic2usd = get_rate2usd(mnemonic)
+                    # if it's Invictus Capital C20, use their API, otherwise use my function
+                    if mnemonic == 'C20':
+                        mnemonic2usd = float(json.loads(requests.get('https://api.invictuscapital.com/v2/funds/crypto20/nav').text)['nav_per_token'])
+                    else:
+                        mnemonic2usd = get_rate2usd(mnemonic)
+
+                    # if book is in USD, no conversion required. If not, convert
                     if book_curr == 'USD':
                         book_curr2usd = 1
                     else:
                         book_curr2usd = get_rate2usd(book_curr)
+                        
                     ticker_price = mnemonic2usd / book_curr2usd
                     ticker_price_date = pd.Timestamp(datetime.now())
                     ticker_curr = book_curr
