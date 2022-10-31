@@ -98,7 +98,7 @@ for namespace in comm_table.get_namespaces():
                 
                 comm_curr = comm_table.lookup("CURRENCY", ticker_curr) #find commodity's currency on commodities table for new price entry
                 price_list=pdb.get_prices(comm,comm_curr) #get commodity's price list from database
-                if price_list[0].get_time64() >= ticker_price_date: #only add new price if last one is outdated
+                if price_list[0].get_time64() >= ticker_price_date.replace(tzinfo=None): #only add new price if last one is outdated
                     print(mnemonic, '(', fullname, ')', 'is already updated...')
                 else:
                     new_price = gnucash.GncPrice(instance = price_list[0].clone(book)) #clone price instance
