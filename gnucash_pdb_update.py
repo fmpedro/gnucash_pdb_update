@@ -59,6 +59,7 @@ comm_table = book.get_table()
 # (commodities organized by namespaces)
 logging.info(f'Gnucash Price Database update started...')
 for namespace in comm_table.get_namespaces():
+    print('Namespace: ' + namespace)
     if namespace == 'template':  # skip non-relevant namespace
         continue
     else:
@@ -104,8 +105,9 @@ for namespace in comm_table.get_namespaces():
                     url = '''https://www.bancoinvest.pt/poupanca-e-investimento/
                     investimento/fundos-de-investimento/
                     detalhe-fundo-de-investimento?isin=''' + cusip
+                    url = url.strip().replace(" ", "").replace("\n", "")
 
-                    response = requests.get(url, verify=False)
+                    response = requests.get(url, verify=True)
                     soup = bs(response.content, 'lxml')
                     ticker_price = soup.find(id="ContentCenter_C004_ucUCFundosDetalhe_ucUCFundosDetalheGeral_lblUltUP").text[:-4]
                     ticker_price = float(ticker_price.replace(',','.'))
@@ -121,7 +123,7 @@ for namespace in comm_table.get_namespaces():
                         ticker_curr = ticker.info['currency']  # get commodity's currency
                     except:
                         # if no data regarding currency is acquired, assume currency is EUR
-                        ticker_curr = 'EUR'
+                        ticker_curr = 'USD'
 
                 # Create new price entry in Price Database
                 comm_curr = comm_table.lookup("CURRENCY", ticker_curr)  # find commodity's currency on commodities table for new price entry
