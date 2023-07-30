@@ -18,6 +18,7 @@ import requests
 import json
 from bs4 import BeautifulSoup as bs
 import logging
+import re
 
 
 # Configure logging:
@@ -59,10 +60,10 @@ comm_table = book.get_table()
 # (commodities organized by namespaces)
 logging.info(f'Gnucash Price Database update started...')
 for namespace in comm_table.get_namespaces():
-    print('Namespace: ' + namespace)
     if namespace == 'template':  # skip non-relevant namespace
         continue
     else:
+        print('== Namespace: ' + namespace + ' ==')
         # for each commodity of each namespace
         for comm in comm_table.get_commodities(namespace):
             mnemonic = comm.get_mnemonic()  # symbol used to query yfinance
@@ -102,17 +103,16 @@ for namespace in comm_table.get_namespaces():
 
                 # get prices from BancoInvest website
                 elif namespace == 'BANCOINVEST':
-                    url = '''https://www.bancoinvest.pt/poupanca-e-investimento/
-                    investimento/fundos-de-investimento/
-                    detalhe-fundo-de-investimento?isin=''' + cusip
+                    url = '''https://www.morningstar.pt/pt/funds/snapshot/snapshot.aspx?id=''' + mnemonic
                     url = url.strip().replace(" ", "").replace("\n", "")
 
                     response = requests.get(url, verify=True)
                     soup = bs(response.content, 'lxml')
-                    ticker_price = soup.find(id="ContentCenter_C004_ucUCFundosDetalhe_ucUCFundosDetalheGeral_lblUltUP").text[:-4]
-                    ticker_price = float(ticker_price.replace(',','.'))
-                    ticker_price_date = soup.find(id="ContentCenter_C004_ucUCFundosDetalhe_ucUCFundosDetalheGeral_lblUltUpData").text
-                    ticker_price_date = pd.Timestamp(datetime.strptime(ticker_price_date, "%d-%m-%Y"))
+                    ticker_array = soup.find(id="overviewQuickstatsDiv").text.split("\xa0")
+                    ticker_curr = ticker_array[1]
+                    ticker_array = [re.sub("[^0-9/.]","",i) for i in ticker_array]
+                    ticker_price = float(ticker_array[2])
+                    ticker_price_date = pd.Timestamp(datetime.strptime(ticker_array[0], "%d/%m/%Y"))
 
                 # get prices of assests in yfinance
                 else:
@@ -120,37 +120,40 @@ for namespace in comm_table.get_namespaces():
                     ticker_price = ticker.history(period='1d').Close[-1]  # get commodity's last close price
                     ticker_price_date = ticker.history(period='1d').index[-1]  # get commodity's last close price date
                     try:
-                        ticker_curr = ticker.info['currency']  # get commodity's currency
+                        ticker_curr = ticker.basic_info['currency']  # get commodity's currency
                     except:
-                        # if no data regarding currency is acquired, assume currency is EUR
-                        ticker_curr = 'USD'
+                        # if no data regarding currency is acquired, assume currency
+                        ticker_curr = 'XXX'
 
                 # Create new price entry in Price Database
                 comm_curr = comm_table.lookup("CURRENCY", ticker_curr)  # find commodity's currency on commodities table for new price entry
                 price_list = pdb.get_prices(comm,comm_curr)  # get commodity's price list from database
-                # First cleanup any price entries with value 0:
-                for entry in price_list:
-                    if entry.get_value().num == 0:
-                        pdb.remove_price(entry)
-                # Create the new price:
-                if price_list[0].get_time64() >= ticker_price_date.replace(tzinfo=None):  # only add new price if last one is outdated
-                    print(mnemonic, '(', fullname, ')', 'is already updated...')
+                if len(price_list) > 0:
+                    # First cleanup any price entries with value 0:         
+                    for entry in price_list:
+                        if entry.get_value().num == 0:
+                            pdb.remove_price(entry)
+                    # Create the new price:
+                    if price_list[0].get_time64() >= ticker_price_date.replace(tzinfo=None):  # only add new price if last one is outdated
+                        print(mnemonic, '(', fullname, ')', 'is already updated...')
+                    else:
+                        new_price = gnucash.GncPrice(instance = price_list[0].clone(book))  # clone price instance
+                        new_price_value = new_price.get_value()  #define price's value
+                        # change numerator and denominator of price's value:
+                        comm_fract = comm.get_fraction()
+                        new_price_value.num = int(Fraction.from_float(ticker_price).limit_denominator(comm_fract).numerator)
+                        new_price_value.denom = int(Fraction.from_float(ticker_price).limit_denominator(comm_fract).denominator)
+                        # change new price's parameters and add to database:
+                        new_price.set_value(new_price_value)
+                        new_price.set_time64(ticker_price_date)
+                        new_price.set_source(0)
+                        new_price.set_typestr('last')
+                        pdb.add_price(new_price)
+                        print(mnemonic, '(', fullname, ')', 'price:', ticker_price, ticker_curr,'date:', ticker_price_date, 'updated!')
                 else:
-                    new_price = gnucash.GncPrice(instance = price_list[0].clone(book))  # clone price instance
-                    new_price_value = new_price.get_value()  #define price's value
-                    # change numerator and denominator of price's value:
-                    comm_fract = comm.get_fraction()
-                    new_price_value.num = int(Fraction.from_float(ticker_price).limit_denominator(comm_fract).numerator)
-                    new_price_value.denom = int(Fraction.from_float(ticker_price).limit_denominator(comm_fract).denominator)
-                    # change new price's parameters and add to database:
-                    new_price.set_value(new_price_value)
-                    new_price.set_time64(ticker_price_date)
-                    new_price.set_source(0)
-                    new_price.set_typestr('last')
-                    pdb.add_price(new_price)
-                    print(mnemonic, '(', fullname, ')', 'price:', ticker_price, ticker_curr, 'updated!')
+                    print(mnemonic, '(', fullname, ')', f'has no entries with {ticker_curr} currency...')
             except IndexError:
-                logging.warning(f'IndexError when retrieving price of {fullname}')
+                logging.warning(f'IndexError when updating price of {fullname}')
                 continue
             except Exception as error:
                 logging.error(f'Error retrieving price of {fullname}... \n Error:\n{traceback.format_exc()}')
