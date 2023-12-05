@@ -84,18 +84,14 @@ for namespace in comm_table.get_namespaces():
 
             try:
                 if namespace == 'CRYPTO':  # get prices of cryptocurrencies
-                    # if it's C20 token, use their API, otherwise use my function
-                    if mnemonic == 'C20':
-                        url = 'https://api.invictuscapital.com/v2/funds/crypto20/nav'
-                        mnemonic2usd = float(json.loads(requests.get(url).text)['nav_per_token'])
-                    else:
-                        mnemonic2usd = get_rate2usd(mnemonic)
+                    # get price of ticket in USD
+                    mnemonic2usd = get_rate2usd(mnemonic)
 
                     # if book is in USD, no conversion required. Else, convert
                     if book_curr == 'USD':
                         book_curr2usd = 1
-                    else:
-                        book_curr2usd = get_rate2usd(book_curr)
+                    elif book_curr == 'EUR':
+                        book_curr2usd = get_rate2usd('EURS')
 
                     ticker_price = mnemonic2usd / book_curr2usd
                     ticker_price_date = pd.Timestamp(datetime.now())
