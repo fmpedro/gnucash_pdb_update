@@ -113,10 +113,10 @@ for namespace in comm_table.get_namespaces():
                 # get prices of assests in yfinance
                 else:
                     ticker = yf.Ticker(mnemonic)  # query yfinance for commodity
-                    ticker_price = ticker.history(period='1d').Close[-1]  # get commodity's last close price
+                    ticker_price = ticker.history(period='1d').Close.iloc[-1]  # get commodity's last close price
                     ticker_price_date = ticker.history(period='1d').index[-1]  # get commodity's last close price date
                     try:
-                        ticker_curr = ticker.basic_info['currency']  # get commodity's currency
+                        ticker_curr = ticker.fast_info['currency']  # get commodity's currency
                     except:
                         # if no data regarding currency is acquired, assume currency
                         ticker_curr = 'XXX'
