@@ -1,5 +1,6 @@
-# gnucash_pdb_update.py script
+# Gnucash Price Database Updater (gnucash_pdb_update.py)
 
+## Summary
 A simple Python script to automatically update Price Database of a Gnucash book, using gnucash's python bindings, yfinance, coincodex API and webscraping.
 
 I developed this script for a personal need, since I was having trouble getting Gnucash's quotes download function to work and I got tired of adding new prices manualy each time I wanted to update the database.
@@ -9,6 +10,17 @@ To use, just run the script in the command line, using "python gnucash_pdb_updat
 
 The script goes through the commodities that are recorded in the book's price database, excluding the "template" namespace. It queries Yahoo Finance and Morningstar API for the last close price of the different commodities and updates the database if the last value is not up-to-date.
 
+## Installation/Initial Setup
+*(credit to @kenkeiras for helping with some of the setup through the instructions provided in this blog post: https://codigoparallevar.com/blog/2023/programmatic-access-to-gnucash-using-python)*
+
+You need to have gnucash installed in your machine, as well as its Python Bindings (python3-gnucash) for the script to work.
+
+The library requirements can be found in the *requirements.txt* file in this repository.
+
+If you want to use a virtual environment to run it, you will need to move the python bindings inside it. You will need to copy */usr/lib/python3/dist-packages/gnucash* into *$VIRTUAL_ENV/lib/python3.*/site-packages/*
+
+
+## Additional Information and Recommendations
 It was writen assuming the book's default currency is EUR. If your book has a different default currency, it will be necessary to do some tweaks. I haven't had time to figure out a way to make the script more generic in this way. However, if you need to change it to your needs and if you need help with that, let me know.
 
 I recommend doing a backup of your gnucash book before using this script for the first time, to make sure no important information is lost. Also, this script must only be run when the book is closed, to avoid any corruption of the file and/or database.
