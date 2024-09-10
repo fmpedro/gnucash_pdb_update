@@ -17,7 +17,7 @@ You need to have gnucash installed in your machine, as well as its Python Bindin
 
 The library requirements can be found in the *requirements.txt* file in this repository.
 
-If you want to use a virtual environment to run it, you will need to move the python bindings inside it. You will need to copy */usr/lib/python3/dist-packages/gnucash* into *$VIRTUAL_ENV/lib/python3.*/site-packages/*
+If you want to use a virtual environment to run it, you will need to move the python bindings inside it. You will need to copy */usr/lib/python3/dist-packages/gnucash* into *$VIRTUAL_ENV/lib/python3.\*/site-packages/*
 
 
 ## Additional Information and Recommendations
