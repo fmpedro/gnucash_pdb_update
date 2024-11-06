@@ -17,7 +17,10 @@ You need to have gnucash installed in your machine, as well as its Python Bindin
 
 The library requirements can be found in the *requirements.txt* file in this repository.
 
-If you want to use a virtual environment to run it, you will need to move the python bindings inside it. You will need to copy */usr/lib/python3/dist-packages/gnucash* into *$VIRTUAL_ENV/lib/python3.\*/site-packages/*
+**Due to some incompatibilities with later python versions and some of the needed libraries, I recommend using python 3.11 to run the script.**
+
+If you want to use a virtual environment to run it, create using the python 3.11 version (Ex: `python3.11 -m venv .venv`). You will also need to move the python bindings inside it. For that either run 
+`cp -r /usr/lib/python3.*/site-packages/gnucash .venv/lib/python3.*/site-packages/gnucash`
 
 
 ## Additional Information and Recommendations
