@@ -1,15 +1,14 @@
 '''
 Python script to automatically update Price Database of a Gnucash book,
-using python bindings and yfinance library, coincodex API and web scrapping
-from morningstar.
+using piecash and yfinance library, coincodex API and web scrapping
+from the web.
+Will not work for XML gnucash files. Tested with sqlite3 files.
 Developed by Filipe Pedro.
 Published on GitHub (https://github.com/fmpedro/gnucash_pdb_update)
 '''
 
 import yfinance as yf
-from gnucash import Session
-import gnucash
-from fractions import Fraction
+import piecash
 from datetime import datetime
 import sys
 import traceback
@@ -19,6 +18,10 @@ import json
 from bs4 import BeautifulSoup as bs
 import logging
 import re
+from decimal import Decimal, ROUND_HALF_UP
+import warnings
+warnings.filterwarnings("ignore")
+
 
 
 # Configure logging:
@@ -44,121 +47,128 @@ if len(sys.argv) < 2:
 
 file = sys.argv[1]
 
-# change the following if your book is in another currency
-# (I don't know of a way to get it from the book):
-book_curr = 'EUR'
-
-
 # connect to gnucash and access the price database and commodities table
-session = Session(file, mode=0)
-book = session.book
-pdb = book.get_price_db()
-comm_table = book.get_table()
+with piecash.open_book(file, readonly=False) as book:
+    
+    # get book's default currency
+    book_curr = book.default_currency
+
+    # get all commodities and convert them into a dataframe
+    comms = []
+    comms.extend([{'namespace': comm.namespace,
+                   'mnemonic': comm.mnemonic,
+                   'fullname': comm.fullname,
+                   'cusip': comm.cusip,
+                   'quote_flag': comm.quote_flag,
+                   'fraction': comm.fraction} for comm in book.commodities])
+    comms_df = pd.DataFrame(comms)
+
+    namespaces = comms_df.namespace.unique()
 
 
-# go through every commodity on price database
-# (commodities organized by namespaces)
-logging.info(f'Gnucash Price Database update started...')
-for namespace in comm_table.get_namespaces():
-    if namespace == 'template':  # skip non-relevant namespace
-        continue
-    else:
-        print('== Namespace: ' + namespace + ' ==')
-        # for each commodity of each namespace
-        for comm in comm_table.get_commodities(namespace):
-            mnemonic = comm.get_mnemonic()  # symbol used to query yfinance
-            fullname = comm.get_fullname()  # full name in the price database
-            cusip = comm.get_cusip()  # ISIN/CUSIP used in the price database
+    # go through every commodity on price database, by namespace
+    logging.info(f'Gnucash Price Database update started...')
+    for namespace in namespaces:
+        if namespace == 'template':  # skip non-relevant namespace
+            continue
+        else:
+            print('== Namespace: ' + namespace + ' ==')
+            # for each commodity of each namespace
+            comm_table = comms_df[comms_df['namespace']==namespace]
 
-            if namespace == 'CURRENCY':
-                if not comm.get_quote_flag():
-                    # if the comm is a currency w/o records in db, skip to next
-                    continue
-                else:
-                    if mnemonic == book_curr:
-                        # it it's the book's currency don't do anything
+            for comm_row in comm_table.itertuples():
+                mnemonic = comm_row.mnemonic
+                fraction = comm_row.fraction
+                commodity = book.commodities(mnemonic=mnemonic)
+                price_list = [price for price in book.prices if price.commodity.mnemonic == mnemonic]
+                price_list.sort(key=lambda price: price.date, reverse=True)
+
+                if namespace == 'CURRENCY':
+                    if not comm_row.quote_flag:
+                        # if the comm is a currency w/o records in db, skip to next
                         continue
                     else:
-                        # changes currency mnemonic to format that yfinance understands
-                        mnemonic = book_curr + '=X'
+                        if comm_row.mnemonic == book_curr.mnemonic:
+                            # it it's the book's currency don't do anything
+                            continue
+                        else:
+                            # changes currency mnemonic to format that yfinance understands
+                            mnemonic = book_curr.mnemonic + '=X'
 
-            try:
-                if namespace == 'CRYPTO':  # get prices of cryptocurrencies
-                    # get price of ticket in USD
-                    mnemonic2usd = get_rate2usd(mnemonic)
+                try:
+                    if namespace == 'CRYPTO':  # get prices of cryptocurrencies
+                        # get price of ticket in USD
+                        mnemonic2usd = get_rate2usd(mnemonic)
 
-                    # if book is in USD, no conversion required. Else, convert
-                    if book_curr == 'USD':
-                        book_curr2usd = 1
-                    elif book_curr == 'EUR':
-                        book_curr2usd = get_rate2usd('EURS')
+                        # if book is in USD, no conversion required. Else, convert
+                        if book_curr.mnemonic == 'USD':
+                            book_curr2usd = 1
+                        elif book_curr.mnemonic == 'EUR':
+                            book_curr2usd = get_rate2usd('EURS')
 
-                    ticker_price = mnemonic2usd / book_curr2usd
-                    ticker_price_date = pd.Timestamp(datetime.now())
-                    ticker_curr = book_curr
+                        ticker_price = mnemonic2usd / book_curr2usd
+                        ticker_price_date = datetime.today().date()
+                        ticker_curr = book_curr.mnemonic
 
-                # get prices from BancoInvest website
-                elif namespace == 'BANCOINVEST':
-                    url = '''https://www.morningstar.pt/pt/funds/snapshot/snapshot.aspx?id=''' + mnemonic
-                    url = url.strip().replace(" ", "").replace("\n", "")
+                    # get prices from BancoInvest website
+                    elif namespace == 'BANCOINVEST':
+                        url = '''https://www.morningstar.pt/pt/funds/snapshot/snapshot.aspx?id=''' + mnemonic
+                        url = url.strip().replace(" ", "").replace("\n", "")
 
-                    response = requests.get(url, verify=True)
-                    soup = bs(response.content, 'lxml')
-                    ticker_array = soup.find(id="overviewQuickstatsDiv").text.split("\xa0")
-                    ticker_curr = ticker_array[1]
-                    ticker_array = [re.sub("[^0-9/.]","",i) for i in ticker_array]
-                    ticker_price = float(ticker_array[2])
-                    ticker_price_date = pd.Timestamp(datetime.strptime(ticker_array[0], "%d/%m/%Y"))
+                        response = requests.get(url, verify=True)
+                        soup = bs(response.content, 'lxml')
+                        ticker_array = soup.find(id="overviewQuickstatsDiv").text.split("\xa0")
+                        ticker_curr = ticker_array[1]
+                        ticker_array = [re.sub("[^0-9/.]","",i) for i in ticker_array]
+                        ticker_price = float(ticker_array[2])
+                        ticker_price_date = datetime.strptime(ticker_array[0], "%d/%m/%Y").date()
 
-                # get prices of assests in yfinance
-                else:
-                    ticker = yf.Ticker(mnemonic)  # query yfinance for commodity
-                    ticker_price = ticker.history(period='1d').Close.iloc[-1]  # get commodity's last close price
-                    ticker_price_date = ticker.history(period='1d').index[-1]  # get commodity's last close price date
-                    try:
-                        ticker_curr = ticker.fast_info['currency']  # get commodity's currency
-                    except:
-                        # if no data regarding currency is acquired, assume currency
-                        ticker_curr = 'XXX'
-
-                # Create new price entry in Price Database
-                comm_curr = comm_table.lookup("CURRENCY", ticker_curr)  # find commodity's currency on commodities table for new price entry
-                price_list = pdb.get_prices(comm,comm_curr)  # get commodity's price list from database
-                if len(price_list) > 0:
-                    # First cleanup any price entries with value 0:         
-                    for entry in price_list:
-                        if entry.get_value().num == 0:
-                            pdb.remove_price(entry)
-                    # Create the new price:
-                    if price_list[0].get_time64() >= ticker_price_date.replace(tzinfo=None):  # only add new price if last one is outdated
-                        print(mnemonic, '(', fullname, ')', 'is already updated...')
+                    # get prices of assests in yfinance
                     else:
-                        new_price = gnucash.GncPrice(instance = price_list[0].clone(book))  # clone price instance
-                        new_price_value = new_price.get_value()  #define price's value
-                        # change numerator and denominator of price's value:
-                        comm_fract = comm.get_fraction()
-                        new_price_value.num = int(Fraction.from_float(ticker_price).limit_denominator(comm_fract).numerator)
-                        new_price_value.denom = int(Fraction.from_float(ticker_price).limit_denominator(comm_fract).denominator)
-                        # change new price's parameters and add to database:
-                        new_price.set_value(new_price_value)
-                        new_price.set_time64(ticker_price_date)
-                        new_price.set_source(0)
-                        new_price.set_typestr('last')
-                        pdb.add_price(new_price)
-                        print(mnemonic, '(', fullname, ')', 'price:', ticker_price, ticker_curr,'date:', ticker_price_date, 'updated!')
-                else:
-                    print(mnemonic, '(', fullname, ')', f'has no entries with {ticker_curr} currency...')
-            except IndexError:
-                logging.warning(f'IndexError when updating price of {fullname}')
-                continue
-            except Exception as error:
-                logging.error(f'Error retrieving price of {fullname}... \n Error:\n{traceback.format_exc()}')
-                print(mnemonic, ': ', error)
-                continue
+                        ticker = yf.Ticker(mnemonic)  # query yfinance for commodity
+                        ticker_price = ticker.history(period='1d').Close.iloc[-1]  # get commodity's last close price
+                        ticker_price_date = ticker.history(period='1d').index[-1].date()  # get commodity's last close price date
+                        try:
+                            ticker_curr = ticker.fast_info['currency']  # get commodity's currency
+                        except:
+                            # if no data regarding currency is acquired, assume currency
+                            ticker_curr = 'XXX'
 
-# end session
-session.save()
-session.end()
-session.destroy()
-logging.info(f'Gnucash Price Database update completed!')
-print('Update completed!')
+                    # Create new price entry in Price Database
+                    if len(price_list) > 0:
+                        curr = price_list[0].currency
+                        # cleanup any price entries with value 0:         
+                        for price in price_list:
+                            if price._value_num == 0:
+                                book.delete(book.prices(guid=price.guid))
+                        if price_list[0].date >= ticker_price_date:  # only add new price if last one is outdated
+                            print(mnemonic, '(', comm_row.fullname, ')', 'is already updated...')
+                            skip = True
+                        else:
+                            skip = False
+                    else:
+                        curr = book_curr
+                        skip = False
+
+                    # create the new price:
+                    if not skip:
+                        new_price = piecash.Price(commodity = commodity, date = ticker_price_date, value=Decimal(ticker_price).quantize(Decimal(str(1/fraction)), rounding=ROUND_HALF_UP), currency = curr, type='last')
+                        book.add(new_price)
+                        print(mnemonic, '(', comm_row.fullname, ')', 'price:', ticker_price, ticker_curr,'date:', ticker_price_date, 'updated!')
+
+                except IndexError:
+                    logging.warning(f'IndexError when updating price of {comm_row.fullname}')
+                    continue
+                except Exception as error:
+                    logging.error(f'Error retrieving price of {comm_row.fullname}... \n Error:\n{traceback.format_exc()}')
+                    print(mnemonic, ': ', error)
+                    continue
+
+    # save changes
+    try:
+        book.save()
+        logging.info(f'Gnucash Price Database update completed!')
+        print('Update completed!')
+    except Exception as error:
+        logging.error(f'Error when saving data to gnucash database... \n Error:\n{traceback.format_exc()}')
+        print('Error when saving data to gnucash database: ', error)
