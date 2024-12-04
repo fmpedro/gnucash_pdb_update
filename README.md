@@ -1,7 +1,7 @@
 # Gnucash Price Database Updater (gnucash_pdb_update.py)
 
 ## Summary
-A simple Python script to automatically update Price Database of a Gnucash book, using gnucash's python bindings, yfinance, coincodex API and webscraping.
+A simple Python script to automatically update Price Database of a Gnucash book, using ~~gnucash's python bindings~~ piecash, yfinance, coincodex API and webscraping.
 
 I developed this script for a personal need, since I was having trouble getting Gnucash's quotes download function to work and I got tired of adding new prices manualy each time I wanted to update the database.
 I wanted to share the code here, since I believe that more people may be suffering from the same problem and may find this script usefull.
@@ -22,10 +22,9 @@ The library requirements can be found in the *requirements.txt* file in this rep
 If you want to use a virtual environment to run it, create using the python 3.11 version (Ex: `python3.11 -m venv .venv`). You will also need to move the python bindings inside it. For that either run 
 `cp -r /usr/lib/python3.*/site-packages/gnucash .venv/lib/python3.*/site-packages/gnucash`
 
+**Note: Since the conversion of the script to use piecash, installation of the gnucash bindings is no longer required. However, your gnucash file needs to be saved as a sqlite3 file.**
 
 ## Additional Information and Recommendations
-It was writen assuming the book's default currency is EUR. If your book has a different default currency, it will be necessary to do some tweaks. I haven't had time to figure out a way to make the script more generic in this way. However, if you need to change it to your needs and if you need help with that, let me know.
-
 I recommend doing a backup of your gnucash book before using this script for the first time, to make sure no important information is lost. Also, this script must only be run when the book is closed, to avoid any corruption of the file and/or database.
 
 Please let me know if you find any problems and feel free to contribute with improvements.
