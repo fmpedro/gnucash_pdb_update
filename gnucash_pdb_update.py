@@ -70,6 +70,7 @@ with piecash.open_book(file, readonly=False) as book:
     logging.info(f'Gnucash Price Database update started...')
     # cleanup any price entries with value 0: 
     [book.delete(book.prices(guid=price.guid)) for price in book.prices if price._value_num == 0]
+
     for namespace in namespaces:
         if namespace == 'template':  # skip non-relevant namespace
             continue
@@ -138,7 +139,6 @@ with piecash.open_book(file, readonly=False) as book:
                             ticker_curr = 'XXX'
 
                     # Create new price entry in Price Database
-                    print(price_list)
                     if len(price_list) > 0:
                         curr = price_list[0].currency
                         if price_list[0].date >= ticker_price_date:  # only add new price if last one is outdated
