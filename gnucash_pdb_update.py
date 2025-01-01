@@ -18,21 +18,32 @@ import json
 from bs4 import BeautifulSoup as bs
 import logging
 import re
+import os
+from dotenv import load_dotenv 
 from decimal import Decimal, ROUND_HALF_UP
 import warnings
 warnings.filterwarnings("ignore")
 
-
+load_dotenv()
+api_key = os.getenv("COINGECKO_API_KEY")
 
 # Configure logging:
 logging.captureWarnings(True)
 logging.basicConfig(
-    level=logging.INFO,
-    filename='gnucash_pdb_update.log',
+    level=logging.INFO, #    filename='gnucash_pdb_update.log',
     format='%(asctime)s | %(levelname)s - %(message)s')
 
 
 # gets convertion rate of 'ticker' to usd
+def get_crypto_price(ticker, curr):
+    url = f'https://api.coingecko.com/api/v3/coins/{ticker}'
+    headers = { "x-cg-demo-api-key": api_key }
+    response = requests.get(url, headers=headers)
+    if response.ok:
+        return json.loads(response.text)['market_data']['current_price'][curr.lower()]
+    else:
+        return 0
+
 def get_rate2usd(ticker):
     url = 'https://coincodex.com/api/coincodex/get_coin/' + ticker
     response = requests.get(url)
@@ -64,7 +75,6 @@ with piecash.open_book(file, readonly=False) as book:
     comms_df = pd.DataFrame(comms)
 
     namespaces = comms_df.namespace.unique()
-
 
     # go through every commodity on price database, by namespace
     logging.info(f'Gnucash Price Database update started...')
@@ -101,16 +111,8 @@ with piecash.open_book(file, readonly=False) as book:
 
                 try:
                     if namespace == 'CRYPTO':  # get prices of cryptocurrencies
-                        # get price of ticket in USD
-                        mnemonic2usd = get_rate2usd(mnemonic)
-
-                        # if book is in USD, no conversion required. Else, convert
-                        if book_curr.mnemonic == 'USD':
-                            book_curr2usd = 1
-                        elif book_curr.mnemonic == 'EUR':
-                            book_curr2usd = get_rate2usd('EURS')
-
-                        ticker_price = mnemonic2usd / book_curr2usd
+                        # get price of ticket in the book's currency
+                        ticker_price = get_crypto_price(mnemonic, book_curr.mnemonic)
                         ticker_price_date = datetime.today().date()
                         ticker_curr = book_curr.mnemonic
 

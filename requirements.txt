@@ -7,6 +7,7 @@ frozendict==2.4.4
 greenlet==3.1.1
 html5lib==1.1
 idna==3.7
+load-dotenv==0.1.0
 lxml==5.2.2
 multitasking==0.0.11
 numpy==2.0.1
@@ -15,6 +16,7 @@ peewee==3.17.6
 piecash==1.2.1
 platformdirs==4.2.2
 python-dateutil==2.9.0.post0
+python-dotenv==1.0.1
 pytz==2024.1
 requests==2.32.3
 six==1.16.0
