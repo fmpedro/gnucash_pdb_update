@@ -1,0 +1,15 @@
+[project]
+name = "gnucash-pdb-update"
+version = "0.1.0"
+description = "A simple Python script to automatically update Price Database of a Gnucash book"
+readme = "README.md"
+requires-python = "~=3.11"
+dependencies = [
+    "bs4>=0.0.2",
+    "dotenv>=0.9.9",
+    "lxml>=6.0.0",
+    "pandas>=2.3.0",
+    "piecash>=1.2.1",
+    "requests>=2.32.4",
+    "yfinance>=0.2.64",
+]
