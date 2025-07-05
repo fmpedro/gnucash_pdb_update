@@ -15,7 +15,8 @@ import traceback
 import pandas as pd
 import requests
 import json
-from bs4 import BeautifulSoup as bs
+#from bs4 import BeautifulSoup as bs
+from lxml import html
 import logging
 import re
 import os
@@ -49,6 +50,25 @@ def get_rate2usd(ticker):
     response = requests.get(url)
     data = json.loads(response.text)
     return data['last_price_usd']
+
+
+def extract_last_price(html_content):
+    tree = html.fromstring(html_content)
+    script_tags = tree.xpath('//script')
+    
+    for script in script_tags:
+        if script.text:
+            match = re.search(r'lastPrice:\{value:(\d+\.\d+)', script.text)
+            if match:
+                return float(match.group(1))
+    return None
+
+
+def extract_date(html_content):
+    tree = html.fromstring(html_content)
+    time_tags = tree.xpath('//time[@datetime]')
+    return time_tags[0].get('datetime') if time_tags else None
+
 
 
 # Check if gnucash file was defined on script call:
@@ -121,13 +141,12 @@ with piecash.open_book(file, readonly=False) as book:
                         url = '''https://www.morningstar.pt/pt/funds/snapshot/snapshot.aspx?id=''' + mnemonic
                         url = url.strip().replace(" ", "").replace("\n", "")
 
-                        response = requests.get(url, verify=True)
-                        soup = bs(response.content, 'lxml')
-                        ticker_array = soup.find(id="overviewQuickstatsDiv").text.split("\xa0")
-                        ticker_curr = ticker_array[1]
-                        ticker_array = [re.sub("[^0-9/.]","",i) for i in ticker_array]
-                        ticker_price = float(ticker_array[2])
-                        ticker_price_date = datetime.strptime(ticker_array[0], "%d/%m/%Y").date()
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+
+                        response = requests.get(url, verify=True, headers=headers)
+                        ticker_price = float(extract_last_price(response.text))
+                        ticker_price_date = datetime.strptime(extract_date(response.text), "%Y-%m-%d").date()
+                        ticker_curr = book_curr.mnemonic #THIS SHOULD BE FIXED TO GET IT FROM THE SCRAPPED PAGE
 
                     # get prices of assests in yfinance
                     else:
