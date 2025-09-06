@@ -100,6 +100,7 @@ with piecash.open_book(file, readonly=False) as book:
     logging.info(f'Gnucash Price Database update started...')
     # cleanup any price entries with value 0: 
     [book.delete(book.prices(guid=price.guid)) for price in book.prices if price._value_num == 0]
+    book.save()
 
     for namespace in namespaces:
         if namespace == 'template':  # skip non-relevant namespace
@@ -136,16 +137,19 @@ with piecash.open_book(file, readonly=False) as book:
                         ticker_price_date = datetime.today().date()
                         ticker_curr = book_curr.mnemonic
 
-                    # get prices from BancoInvest website
+                    # get prices from Morningstar website
                     elif namespace == 'BANCOINVEST':
-                        url = '''https://www.morningstar.pt/pt/funds/snapshot/snapshot.aspx?id=''' + mnemonic
+                        url = '''https://global.morningstar.com/en-eu/investments/funds/''' + mnemonic + '''/quote'''
                         url = url.strip().replace(" ", "").replace("\n", "")
 
                         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
 
                         response = requests.get(url, verify=True, headers=headers)
                         ticker_price = float(extract_last_price(response.text))
-                        ticker_price_date = datetime.strptime(extract_date(response.text), "%Y-%m-%d").date()
+                        try:
+                            ticker_price_date = datetime.strptime(extract_date(response.text), "%Y-%m-%d").date()
+                        except:
+                            ticker_price_date = datetime.today().date()
                         ticker_curr = book_curr.mnemonic #THIS SHOULD BE FIXED TO GET IT FROM THE SCRAPPED PAGE
 
                     # get prices of assests in yfinance

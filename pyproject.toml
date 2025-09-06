@@ -3,7 +3,7 @@ name = "gnucash-pdb-update"
 version = "0.1.0"
 description = "A simple Python script to automatically update Price Database of a Gnucash book"
 readme = "README.md"
-requires-python = "~=3.11"
+requires-python = "~=3.11.0"
 dependencies = [
     "cssselect>=1.3.0",
     "dotenv>=0.9.9",
